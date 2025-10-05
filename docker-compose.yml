@@ -1,0 +1,13 @@
+services:
+  navidrome-proxy:
+    build: .
+    container_name: navidrome-proxy
+    restart: unless-stopped
+    ports:
+      # Map port 9876 on your host to port 9876 in the container
+      - "9876:9876"
+    environment:
+      # These values will be pulled from your shell environment
+      - NAVIDROME_URL=${NAVIDROME_URL}
+      - NAVIDROME_USERNAME=${NAVIDROME_USERNAME}
+      - NAVIDROME_API_KEY=${NAVIDROME_API_KEY}
