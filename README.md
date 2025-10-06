@@ -37,7 +37,7 @@ This project is designed to be deployed as a Docker container.
 
    services:
      subsonic-proxy:
-       image: ghcr.io/YOUR_USERNAME/subsonic-proxy:latest
+       image: ghcr.io/SomeCodecat/subsonic-proxy:latest
        container_name: subsonic-proxy
        restart: unless-stopped
        ports:
