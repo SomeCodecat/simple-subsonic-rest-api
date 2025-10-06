@@ -35,7 +35,7 @@ This project is designed to be deployed as a Docker container.
    ```yaml
    services:
      subsonic-proxy:
-       image: ghcr.io/SomeCodecat/subsonic-proxy:latest
+       image: ghcr.io/somecodecat/subsonic-proxy:latest
        container_name: subsonic-proxy
        restart: unless-stopped
        ports:
