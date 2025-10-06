@@ -8,7 +8,7 @@ WORKDIR /app
 COPY src/main.py .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir Flask requests
+RUN pip install --no-cache-dir Flask requests Flask-Cors
 
 # Tell Docker that the container listens on this port
 EXPOSE 9876
