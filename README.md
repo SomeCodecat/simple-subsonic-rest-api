@@ -33,8 +33,6 @@ This project is designed to be deployed as a Docker container.
    On your server, create a directory for the service (e.g., `~/docker/subsonic-proxy`) and place the following `docker-compose.yml` file inside.
 
    ```yaml
-   version: "3.8"
-
    services:
      subsonic-proxy:
        image: ghcr.io/SomeCodecat/subsonic-proxy:latest
