@@ -39,7 +39,7 @@ This project is designed to be deployed as a Docker container.
        container_name: subsonic-proxy
        restart: unless-stopped
        ports:
-         - "9876:9876"
+         - "9876:8000"
        environment:
          - NAVIDROME_URL=${NAVIDROME_URL}
          - NAVIDROME_USERNAME=${NAVIDROME_USERNAME}
