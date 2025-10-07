@@ -2,11 +2,6 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
-
-on:
-  push:
     branches: ["main"]
     tags:
       - "v*.*.*"
