@@ -51,7 +51,7 @@ def get_artist_list():
         for index in artists_data['artists']['index']:
             for artist in index.get('artist', []):
                 artist_list.append({'id': artist.get('id'), 'name': artist.get('name', 'Unknown Artist')})
-    return jsonify(sorted(artist_list, key=lambda x: str(x.get('name', '')).lower()))
+    return jsonify(sorted(artist_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/albums')
 def get_album_list():
@@ -65,7 +65,7 @@ def get_album_list():
                 'id': album.get('id'), 'name': album.get('name', 'Unknown Album'),
                 'artistId': album.get('artistId'), 'artistName': album.get('artist', '')
             })
-    return jsonify(sorted(album_list, key=lambda x: str(x.get('name', '')).lower()))
+    return jsonify(sorted(album_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/songs')
 def get_song_list():
@@ -79,7 +79,7 @@ def get_song_list():
                 'name': song.get('title', 'Unknown Song'), 'albumId': song.get('albumId'),
                 'context': song.get('album', '')
             })
-    return jsonify(sorted(song_list, key=lambda x: str(x.get('name', '')).lower()))
+    return jsonify(sorted(song_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/stats')
 def get_stats():
@@ -98,4 +98,4 @@ def get_stats():
     return jsonify(stats)
 
 if __name__ == '__main__':
-    app.run(host=LISTEN_HOST, port=LISTEN_PORT)
+    app.run(host=LISTEN_HOST, port=8000)
