@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
@@ -10,6 +9,7 @@ import os
 NAVIDROME_URL = os.environ.get("NAVIDROME_URL")
 USERNAME = os.environ.get("NAVIDROME_USERNAME")
 API_KEY = os.environ.get("NAVIDROME_API_KEY")
+
 LISTEN_HOST = "0.0.0.0"
 LISTEN_PORT = 9876
 
@@ -45,7 +45,7 @@ def get_artist_list():
         for index in artists_data['artists']['index']:
             for artist in index.get('artist', []):
                 artist_list.append({'id': artist.get('id'), 'name': artist.get('name', 'Unknown Artist')})
-    return jsonify(artist_list)
+    return jsonify(sorted(artist_list, key=lambda x: str(x.get('name', '')).lower()))
 
 @app.route('/albums')
 def get_album_list():
@@ -57,7 +57,7 @@ def get_album_list():
                 'id': album.get('id'), 'name': album.get('name', 'Unknown Album'),
                 'artistId': album.get('artistId'), 'artistName': album.get('artist', '')
             })
-    return jsonify(album_list)
+    return jsonify(sorted(album_list, key=lambda x: str(x.get('name', '')).lower()))
 
 @app.route('/songs')
 def get_song_list():
@@ -69,7 +69,7 @@ def get_song_list():
                 'name': song.get('title', 'Unknown Song'), 'albumId': song.get('albumId'),
                 'context': song.get('album', '')
             })
-    return jsonify(song_list)
+    return jsonify(sorted(song_list, key=lambda x: str(x.get('name', '')).lower()))
 
 @app.route('/stats')
 def get_stats():
