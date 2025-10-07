@@ -33,10 +33,10 @@ cache = Cache(app)
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if request.headers.get('X-Api-Key') and request.headers.get('X-Api-Key') == SUBSONIC_PROXY_API_KEY:
             return f(*args, **kwargs)
         else:
+            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
             app.logger.warning(f"Unauthorized access attempt from {client_ip}")
             return jsonify({"error": "Unauthorized"}), 401
     return decorated_function
@@ -70,16 +70,13 @@ def subsonic_request(endpoint, extra_params=None):
 @app.route('/config')
 @require_api_key
 def get_config():
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /config from {client_ip}")
     return jsonify({'baseUrl': SUBSONIC_URL})
 
 @app.route('/artists')
 @require_api_key
 @cache.cached()
 def get_artist_list():
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /artists from {client_ip} (cache miss)")
+    app.logger.info(f"Request for /artists (cache miss)")
     artists_data = subsonic_request("getArtists")
     artist_list = []
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
@@ -92,8 +89,7 @@ def get_artist_list():
 @require_api_key
 @cache.cached()
 def get_album_list():
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /albums from {client_ip} (cache miss)")
+    app.logger.info(f"Request for /albums (cache miss)")
     album_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     album_list = []
     if album_data and 'albumList2' in album_data and 'album' in album_data['albumList2']:
@@ -108,9 +104,8 @@ def get_album_list():
 @require_api_key
 @cache.cached()
 def get_song_list():
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /songs from {client_ip} (cache miss)")
-    song_data = subsonic_request("getRandomSongs", extra_params={"size": "10000"})
+    app.logger.info(f"Request for /songs (cache miss)")
+    song_data = subsonic_request("getRandomSongs", extra_params={"size": "50000"})
     song_list = []
     if song_data and 'randomSongs' in song_data and 'song' in song_data['randomSongs']:
         for song in song_data['randomSongs']['song']:
@@ -124,18 +119,20 @@ def get_song_list():
 @require_api_key
 @cache.cached()
 def get_stats():
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /stats from {client_ip} (cache miss)")
+    app.logger.info(f"Request for /stats (cache miss)")
     stats = {"artistCount": 0, "albumCount": 0, "songCount": 0}
     artists_data = subsonic_request("getArtists")
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
         stats['artistCount'] = sum(len(index.get('artist', [])) for index in artists_data['artists']['index'])
+    
     album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     if album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']:
         stats['albumCount'] = len(album_list_data['albumList2']['album'])
-    scan_status_data = subsonic_request("getScanStatus")
-    if scan_status_data and 'scanStatus' in scan_status_data:
-        stats['songCount'] = scan_status_data['scanStatus'].get('count', 0)
+        
+    song_data = subsonic_request("getRandomSongs", extra_params={"size": "50000"})
+    if song_data and 'randomSongs' in song_data and 'song' in song_data['randomSongs']:
+        stats['songCount'] = len(song_data['randomSongs']['song'])
+        
     return jsonify(stats)
 
 if __name__ == '__main__':
