@@ -4,6 +4,21 @@ A lightweight, containerized API proxy that acts as a bridge for Subsonic-compat
 
 This service handles the complex salt-and-token authentication required by the Subsonic API and exposes simple, clean JSON endpoints that are easy to consume.
 
+## Table of Contents
+
+- [Subsonic Proxy](#subsonic-proxy)
+  - [Table of Contents](#table-of-contents)
+  - [Deployment Guide](#deployment-guide)
+    - [Prerequisites](#prerequisites)
+    - [Instructions](#instructions)
+  - [The Problem Solved](#the-problem-solved)
+  - [Features](#features)
+  - [API Endpoints](#api-endpoints)
+  - [Glance Widget Integration](#glance-widget-integration)
+    - [Glance Setup](#glance-setup)
+    - [Glance Secrets](#glance-secrets)
+    - [Widget Configuration](#widget-configuration)
+
 ## Deployment Guide
 
 This project is designed to be deployed as a Docker container.
@@ -12,7 +27,7 @@ This project is designed to be deployed as a Docker container.
 
 - Docker and Docker Compose installed on your server.
 - A running Subsonic-compatible server (e.g., Navidrome).
-- A dedicated, non-admin user created in your Subsonic server specifically for this proxy, with a long, secure password.
+- A dedicated user created in your Subsonic server specifically for this proxy. For security, it is **strongly recommended** to use a non-admin user with a long, secure password.
 
 ### Instructions
 
@@ -104,6 +119,10 @@ The proxy provides the following simple endpoints. All endpoints require the `X-
 
 This widget is designed for the [Glance Dashboard](https://github.com/glanceapp/glance/). It provides a summary of your library and includes interactive tooltips for browsing artists, albums, and songs directly from your dashboard.
 
+### Glance Setup
+
+Before adding the widget, you need to have Glance installed and running. For detailed instructions on setting up Glance, please refer to the [official documentation](https://github.com/glanceapp/glance).
+
 ### Glance Secrets
 
 First, ensure you have the following secrets defined in your Glance environment. These should match the values from your `.env` file.
@@ -121,22 +140,22 @@ Add the following widget to your `glance.yml` file.
   hide-header: true
   title: Navidrome Library
   cache: 1h
-  url: ${secret:SUBSONIC_PROXY_URL}/stats
+  url: ${SUBSONIC_PROXY_URL}/stats
   headers:
-    X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+    X-Api-Key: ${SUBSONIC_PROXY_API_KEY}
   subrequests:
     artists:
-      url: ${secret:SUBSONIC_PROXY_URL}/artists
+      url: ${SUBSONIC_PROXY_URL}/artists
       headers:
-        X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+        X-Api-Key: ${SUBSONIC_PROXY_API_KEY}
     albums:
-      url: ${secret:SUBSONIC_PROXY_URL}/albums
+      url: ${SUBSONIC_PROXY_URL}/albums
       headers:
-        X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+        X-Api-Key: ${SUBSONIC_PROXY_API_KEY}
     songs:
-      url: ${secret:SUBSONIC_PROXY_URL}/songs
+      url: ${SUBSONIC_PROXY_URL}/songs
       headers:
-        X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+        X-Api-Key: ${SUBSONIC_PROXY_API_KEY}
 
   options:
     # --- Main Feature Toggles ---
@@ -150,7 +169,7 @@ Add the following widget to your `glance.yml` file.
     context_text_enabled: true # Show context (e.g., artist for albums, album for songs)
 
     # --- Required for Links ---
-    subsonic_server_url: ${secret:SUBSONIC_SERVER_URL}
+    subsonic_server_url: ${SUBSONIC_SERVER_URL}
 
   template: |
     {{- /* Widget Configuration */ -}}
