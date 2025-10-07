@@ -116,14 +116,6 @@ First, ensure you have the following secrets defined in your Glance environment.
 
 Add the following widget to your `glance.yml` file.
 
-````yaml
-### Widget Configuration
-
-Add the following widget to your `glance.yml` file.
-
-<details>
-<summary>Click to expand Glance Widget Configuration</summary>
-
 ```yaml
 - type: custom-api
   hide-header: true
@@ -380,4 +372,4 @@ Add the following widget to your `glance.yml` file.
       </div>
     </div>
     {{ end }}
-````
+```
