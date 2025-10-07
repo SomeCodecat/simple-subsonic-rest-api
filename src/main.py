@@ -9,15 +9,35 @@ import os
 SUBSONIC_URL = os.environ.get("SUBSONIC_URL")
 SUBSONIC_USERNAME = os.environ.get("SUBSONIC_USERNAME")
 SUBSONIC_PASSWORD = os.environ.get("SUBSONIC_PASSWORD")
+SUBSONIC_PROXY_API_KEY = os.environ.get("SUBSONIC_PROXY_API_KEY")
+CACHE_TIMEOUT = int(os.environ.get("CACHE_TIMEOUT_SECONDS", 900))
 
 LISTEN_HOST = "0.0.0.0"
 LISTEN_PORT = 8000
 
-if not all([SUBSONIC_URL, SUBSONIC_USERNAME, SUBSONIC_PASSWORD]):
-    raise ValueError("Error: Ensure SUBSONIC_URL, SUBSONIC_USERNAME, and SUBSONIC_PASSWORD are set.")
+if not all([SUBSONIC_URL, SUBSONIC_USERNAME, SUBSONIC_PASSWORD, SUBSONIC_PROXY_API_KEY]):
+    raise ValueError("Error: Ensure SUBSONIC_URL, SUBSONIC_USERNAME, SUBSONIC_PASSWORD, and SUBSONIC_PROXY_API_KEY are set.")
+
+config = {
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": CACHE_TIMEOUT
+}
 
 app = Flask(__name__)
+app.config.from_mapping(config)
 CORS(app)
+cache = Cache(app)
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if request.headers.get('X-Api-Key') and request.headers.get('X-Api-Key') == SUBSONIC_PROXY_API_KEY:
+            return f(*args, **kwargs)
+        else:
+            app.logger.warning(f"Unauthorized access attempt from {client_ip}")
+            return jsonify({"error": "Unauthorized"}), 401
+    return decorated_function
 
 def subsonic_request(endpoint, extra_params=None):
     salt = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
@@ -46,15 +66,18 @@ def subsonic_request(endpoint, extra_params=None):
         return None
 
 @app.route('/config')
+@require_api_key
 def get_config():
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     app.logger.info(f"Request for /config from {client_ip}")
     return jsonify({'baseUrl': SUBSONIC_URL})
 
 @app.route('/artists')
+@require_api_key
+@cache.cached()
 def get_artist_list():
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /artists from {client_ip}")
+    app.logger.info(f"Request for /artists from {client_ip} (cache miss)")
     artists_data = subsonic_request("getArtists")
     artist_list = []
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
@@ -64,9 +87,11 @@ def get_artist_list():
     return jsonify(sorted(artist_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/albums')
+@require_api_key
+@cache.cached()
 def get_album_list():
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /albums from {client_ip}")
+    app.logger.info(f"Request for /albums from {client_ip} (cache miss)")
     album_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     album_list = []
     if album_data and 'albumList2' in album_data and 'album' in album_data['albumList2']:
@@ -78,9 +103,11 @@ def get_album_list():
     return jsonify(sorted(album_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/songs')
+@require_api_key
+@cache.cached()
 def get_song_list():
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /songs from {client_ip}")
+    app.logger.info(f"Request for /songs from {client_ip} (cache miss)")
     song_data = subsonic_request("getRandomSongs", extra_params={"size": "10000"})
     song_list = []
     if song_data and 'randomSongs' in song_data and 'song' in song_data['randomSongs']:
@@ -92,9 +119,11 @@ def get_song_list():
     return jsonify(sorted(song_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/stats')
+@require_api_key
+@cache.cached()
 def get_stats():
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    app.logger.info(f"Request for /stats from {client_ip}")
+    app.logger.info(f"Request for /stats from {client_ip} (cache miss)")
     stats = {"artistCount": 0, "albumCount": 0, "songCount": 0}
     artists_data = subsonic_request("getArtists")
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
