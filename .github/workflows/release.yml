@@ -1,8 +1,15 @@
-name: Build and Push Docker Image
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
 
 on:
   push:
     branches: ["main"]
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 jobs:
@@ -27,11 +34,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.owner_lowercase.outputs.name }}/subsonic-proxy
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ steps.owner_lowercase.outputs.name }}/subsonic-proxy:latest
-            ghcr.io/${{ steps.owner_lowercase.outputs.name }}/subsonic-proxy:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
