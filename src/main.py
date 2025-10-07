@@ -25,14 +25,23 @@ def subsonic_request(endpoint, extra_params=None):
     params = {"u": USERNAME, "t": token, "s": salt, "v": "1.16.1", "c": "glance-proxy", "f": "json"}
     if extra_params:
         params.update(extra_params)
+    
+    url_to_call = f"{NAVIDROME_URL}/rest/{endpoint}"
+    app.logger.info(f"Proxy is calling Navidrome API: {url_to_call}")
+
     try:
-        response = requests.get(f"{NAVIDROME_URL}/rest/{endpoint}", params=params, timeout=30)
+        response = requests.get(url_to_call, params=params, timeout=30)
         response.raise_for_status()
         data = response.json()
-        if data.get('subsonic-response', {}).get('status') == 'failed': return None
+        
+        if data.get('subsonic-response', {}).get('status') == 'failed':
+            error_msg = data.get('subsonic-response', {}).get('error', {}).get('message', 'Unknown API error')
+            app.logger.error(f"Navidrome API returned a failure status: {error_msg}")
+            return None
+            
         return data.get('subsonic-response', {})
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error connecting to Navidrome: {e}")
+        app.logger.error(f"Error connecting to Navidrome at {NAVIDROME_URL}: {e}")
         return None
 
 @app.route('/config')
@@ -55,7 +64,7 @@ def get_artist_list():
 
 @app.route('/albums')
 def get_album_list():
-    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    client_ip = request.headers.get('X-Forwarded-for', request.remote_addr)
     app.logger.info(f"Request for /albums from {client_ip}")
     album_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     album_list = []
