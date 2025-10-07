@@ -38,7 +38,8 @@ def subsonic_request(endpoint, extra_params=None):
             error_msg = data.get('subsonic-response', {}).get('error', {}).get('message', 'Unknown API error')
             app.logger.error(f"Subsonic API returned a failure status: {error_msg}")
             return None
-            
+        
+        app.logger.info(f"Successfully received data from endpoint: {endpoint}")
         return data.get('subsonic-response', {})
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Error connecting to Subsonic server at {SUBSONIC_URL}: {e}")
