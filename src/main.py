@@ -1,17 +1,18 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 import hashlib
 import random
 import string
 import os
+from datetime import datetime
 
 NAVIDROME_URL = os.environ.get("NAVIDROME_URL")
 USERNAME = os.environ.get("NAVIDROME_USERNAME")
 API_KEY = os.environ.get("NAVIDROME_API_KEY")
 
 LISTEN_HOST = "0.0.0.0"
-LISTEN_PORT = 9876
+LISTEN_PORT = 8000
 
 if not all([NAVIDROME_URL, USERNAME, API_KEY]):
     raise ValueError("Error: Ensure NAVIDROME_URL, NAVIDROME_USERNAME, and NAVIDROME_API_KEY are set.")
@@ -35,10 +36,14 @@ def subsonic_request(endpoint, extra_params=None):
 
 @app.route('/config')
 def get_config():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"[{datetime.now()}] Received request for /config from {client_ip}")
     return jsonify({'baseUrl': NAVIDROME_URL})
 
 @app.route('/artists')
 def get_artist_list():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"[{datetime.now()}] Received request for /artists from {client_ip}")
     artists_data = subsonic_request("getArtists")
     artist_list = []
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
@@ -49,6 +54,8 @@ def get_artist_list():
 
 @app.route('/albums')
 def get_album_list():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"[{datetime.now()}] Received request for /albums from {client_ip}")
     album_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     album_list = []
     if album_data and 'albumList2' in album_data and 'album' in album_data['albumList2']:
@@ -61,6 +68,8 @@ def get_album_list():
 
 @app.route('/songs')
 def get_song_list():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"[{datetime.now()}] Received request for /songs from {client_ip}")
     song_data = subsonic_request("getRandomSongs", extra_params={"size": "10000"})
     song_list = []
     if song_data and 'randomSongs' in song_data and 'song' in song_data['randomSongs']:
@@ -73,12 +82,14 @@ def get_song_list():
 
 @app.route('/stats')
 def get_stats():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"[{datetime.now()}] Received request for /stats from {client_ip}")
     stats = {"artistCount": 0, "albumCount": 0, "songCount": 0}
     artists_data = subsonic_request("getArtists")
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
         stats['artistCount'] = sum(len(index.get('artist', [])) for index in artists_data['artists']['index'])
     album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
-    if album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']:
+    if album_list_data and 'albumList2' in album_data and 'album' in album_list_data['albumList2']:
         stats['albumCount'] = len(album_list_data['albumList2']['album'])
     scan_status_data = subsonic_request("getScanStatus")
     if scan_status_data and 'scanStatus' in scan_status_data:
