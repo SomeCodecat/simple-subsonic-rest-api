@@ -88,13 +88,15 @@ def get_stats():
     artists_data = subsonic_request("getArtists")
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
         stats['artistCount'] = sum(len(index.get('artist', [])) for index in artists_data['artists']['index'])
+    
     album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
-    if album_list_data and 'albumList2' in album_data and 'album' in album_list_data['albumList2']:
+    if album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']:
         stats['albumCount'] = len(album_list_data['albumList2']['album'])
+        
     scan_status_data = subsonic_request("getScanStatus")
     if scan_status_data and 'scanStatus' in scan_status_data:
         stats['songCount'] = scan_status_data['scanStatus'].get('count', 0)
     return jsonify(stats)
 
 if __name__ == '__main__':
-    app.run(host=LISTEN_HOST, port=LISTEN_PORT)
+    app.run(host=LISTEN_HOST, port=8000)
