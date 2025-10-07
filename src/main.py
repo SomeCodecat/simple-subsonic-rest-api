@@ -6,28 +6,28 @@ import random
 import string
 import os
 
-NAVIDROME_URL = os.environ.get("NAVIDROME_URL")
-USERNAME = os.environ.get("NAVIDROME_USERNAME")
-API_KEY = os.environ.get("NAVIDROME_API_KEY")
+SUBSONIC_URL = os.environ.get("SUBSONIC_URL")
+SUBSONIC_USERNAME = os.environ.get("SUBSONIC_USERNAME")
+SUBSONIC_PASSWORD = os.environ.get("SUBSONIC_PASSWORD")
 
 LISTEN_HOST = "0.0.0.0"
 LISTEN_PORT = 8000
 
-if not all([NAVIDROME_URL, USERNAME, API_KEY]):
-    raise ValueError("Error: Ensure NAVIDROME_URL, NAVIDROME_USERNAME, and NAVIDROME_API_KEY are set.")
+if not all([SUBSONIC_URL, SUBSONIC_USERNAME, SUBSONIC_PASSWORD]):
+    raise ValueError("Error: Ensure SUBSONIC_URL, SUBSONIC_USERNAME, and SUBSONIC_PASSWORD are set.")
 
 app = Flask(__name__)
 CORS(app)
 
 def subsonic_request(endpoint, extra_params=None):
     salt = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
-    token = hashlib.md5((API_KEY + salt).encode('utf-8')).hexdigest()
-    params = {"u": USERNAME, "t": token, "s": salt, "v": "1.16.1", "c": "glance-proxy", "f": "json"}
+    token = hashlib.md5((SUBSONIC_PASSWORD + salt).encode('utf-8')).hexdigest()
+    params = {"u": SUBSONIC_USERNAME, "t": token, "s": salt, "v": "1.16.1", "c": "glance-proxy", "f": "json"}
     if extra_params:
         params.update(extra_params)
     
-    url_to_call = f"{NAVIDROME_URL}/rest/{endpoint}"
-    app.logger.info(f"Proxy is calling Navidrome API: {url_to_call}")
+    url_to_call = f"{SUBSONIC_URL}/rest/{endpoint}"
+    app.logger.info(f"Proxy is calling Subsonic API: {url_to_call}")
 
     try:
         response = requests.get(url_to_call, params=params, timeout=30)
@@ -36,19 +36,19 @@ def subsonic_request(endpoint, extra_params=None):
         
         if data.get('subsonic-response', {}).get('status') == 'failed':
             error_msg = data.get('subsonic-response', {}).get('error', {}).get('message', 'Unknown API error')
-            app.logger.error(f"Navidrome API returned a failure status: {error_msg}")
+            app.logger.error(f"Subsonic API returned a failure status: {error_msg}")
             return None
             
         return data.get('subsonic-response', {})
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error connecting to Navidrome at {NAVIDROME_URL}: {e}")
+        app.logger.error(f"Error connecting to Subsonic server at {SUBSONIC_URL}: {e}")
         return None
 
 @app.route('/config')
 def get_config():
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     app.logger.info(f"Request for /config from {client_ip}")
-    return jsonify({'baseUrl': NAVIDROME_URL})
+    return jsonify({'baseUrl': SUBSONIC_URL})
 
 @app.route('/artists')
 def get_artist_list():
@@ -64,7 +64,7 @@ def get_artist_list():
 
 @app.route('/albums')
 def get_album_list():
-    client_ip = request.headers.get('X-Forwarded-for', request.remote_addr)
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
     app.logger.info(f"Request for /albums from {client_ip}")
     album_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     album_list = []
