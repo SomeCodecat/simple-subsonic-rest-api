@@ -104,15 +104,34 @@ def get_album_list():
 @require_api_key
 @cache.cached()
 def get_song_list():
-    app.logger.info(f"Request for /songs (cache miss)")
-    song_data = subsonic_request("getRandomSongs", extra_params={"size": "50000"})
+    app.logger.info("Request for /songs (cache miss)")
+    
+    # First, get all albums
+    album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
+    if not (album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']):
+        app.logger.error("Could not retrieve album list to fetch all songs.")
+        return jsonify([])
+
+    all_albums = album_list_data['albumList2']['album']
     song_list = []
-    if song_data and 'randomSongs' in song_data and 'song' in song_data['randomSongs']:
-        for song in song_data['randomSongs']['song']:
-            song_list.append({
-                'name': song.get('title', 'Unknown Song'), 'albumId': song.get('albumId'),
-                'context': song.get('album', '')
-            })
+
+    # Iterate through each album to get its songs
+    for album_summary in all_albums:
+        album_id = album_summary.get('id')
+        if not album_id:
+            continue
+        
+        app.logger.info(f"Fetching songs for album ID: {album_id}")
+        album_details_data = subsonic_request("getAlbum", extra_params={"id": album_id})
+        
+        if album_details_data and 'album' in album_details_data and 'song' in album_details_data['album']:
+            for song in album_details_data['album']['song']:
+                song_list.append({
+                    'name': song.get('title', 'Unknown Song'),
+                    'albumId': song.get('albumId'),
+                    'context': song.get('album', '')
+                })
+
     return jsonify(sorted(song_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/stats')
@@ -121,17 +140,19 @@ def get_song_list():
 def get_stats():
     app.logger.info(f"Request for /stats (cache miss)")
     stats = {"artistCount": 0, "albumCount": 0, "songCount": 0}
+    
+    # Get artist count
     artists_data = subsonic_request("getArtists")
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
         stats['artistCount'] = sum(len(index.get('artist', [])) for index in artists_data['artists']['index'])
     
+    # Get album count and song count from album list
     album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
     if album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']:
-        stats['albumCount'] = len(album_list_data['albumList2']['album'])
-        
-    song_data = subsonic_request("getRandomSongs", extra_params={"size": "50000"})
-    if song_data and 'randomSongs' in song_data and 'song' in song_data['randomSongs']:
-        stats['songCount'] = len(song_data['randomSongs']['song'])
+        albums = album_list_data['albumList2']['album']
+        stats['albumCount'] = len(albums)
+        # Sum song counts from each album for a total song count
+        stats['songCount'] = sum(album.get('songCount', 0) for album in albums)
         
     return jsonify(stats)
 

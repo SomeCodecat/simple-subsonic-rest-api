@@ -12,9 +12,16 @@ This proxy encapsulates that entire logic, allowing any simple HTTP client to ge
 
 ## Features
 
-- Simple JSON Endpoints: Provides easy-to-use endpoints for library statistics and detailed lists.
-- Handles Subsonic Auth: Manages all salt-and-token authentication automatically.
-- Containerized: Runs as a minimal and efficient Docker container using Python and Flask.
+- **Simple JSON Endpoints**: Provides easy-to-use endpoints for library statistics and detailed lists.
+- **Handles Subsonic Auth**: Manages all salt-and-token authentication automatically.
+- **Secure**: Protects your proxy endpoints with a required API key.
+- **Performant**: Caches Subsonic API responses to reduce load and improve speed. Cache duration is configurable.
+- **Containerized**: Runs as a minimal and efficient Docker container using Python and Flask.
+- **Advanced Glance Widget**: Comes with a feature-rich Glance widget template that includes:
+  - Interactive tooltips on hover to browse artists, albums, and songs.
+  - Client-side search and sorting within tooltips.
+  - Dynamic links that take you directly to the item in your Subsonic server.
+  - Highly configurable to enable/disable features.
 
 ## Deployment Guide
 
@@ -24,7 +31,7 @@ This project is designed to be deployed as a Docker container.
 
 - Docker and Docker Compose installed on your server.
 - A running Subsonic-compatible server (e.g., Navidrome).
-- (Optional) A dedicated, non-admin user created in your Subsonic server specifically for this proxy, with a long, secure password.
+- A dedicated, non-admin user created in your Subsonic server specifically for this proxy, with a long, secure password.
 
 ### Instructions
 
@@ -33,43 +40,78 @@ This project is designed to be deployed as a Docker container.
    On your server, create a directory for the service (e.g., `~/docker/subsonic-proxy`) and place the following `docker-compose.yml` file inside.
 
    ```yaml
+   version: "3.8"
+
    services:
      subsonic-proxy:
        image: ghcr.io/somecodecat/subsonic-proxy:latest
        container_name: subsonic-proxy
        restart: unless-stopped
        ports:
-         - "9876:8000"
+         - "9876:8000" # Exposes the proxy on port 9876
        environment:
-         - NAVIDROME_URL=${NAVIDROME_URL}
-         - NAVIDROME_USERNAME=${NAVIDROME_USERNAME}
-         - NAVIDROME_API_KEY=${NAVIDROME_API_KEY}
+         - SUBSONIC_URL=${SUBSONIC_URL}
+         - SUBSONIC_USERNAME=${SUBSONIC_USERNAME}
+         - SUBSONIC_PASSWORD=${SUBSONIC_PASSWORD}
+         - SUBSONIC_PROXY_API_KEY=${SUBSONIC_PROXY_API_KEY}
+         - CACHE_TIMEOUT_SECONDS=${CACHE_TIMEOUT_SECONDS:-900}
    ```
 
-2. **Run with Docker Compose**
+2. **Set Environment Variables**
 
-   From the directory containing your `docker-compose.yml` file, pull the image from the registry and start the service:
+   This service is configured using environment variables. You must provide these to the container. A common method is to create a `.env` file in the same directory as your `docker-compose.yml` file.
+
+   Create a file named `.env` with the following content, replacing the placeholder values:
+
+   ```env
+   # .env file
+   SUBSONIC_URL="http://your-navidrome-url:4533"
+   SUBSONIC_USERNAME="your-api-user"
+   SUBSONIC_PASSWORD="your-long-and-secret-password"
+   SUBSONIC_PROXY_API_KEY="a-very-strong-random-key-for-the-proxy"
+
+   # Optional: Set cache timeout in seconds (default is 900s / 15m)
+   CACHE_TIMEOUT_SECONDS=900
+   ```
+
+   **Security Note**: The `SUBSONIC_PROXY_API_KEY` is a secret key you create. It's used to protect your proxy from unauthorized access. Make it long and random.
+
+3. **Run with Docker Compose**
+
+   From the directory containing your `docker-compose.yml` and `.env` files, pull the image and start the service:
 
    ```bash
    docker-compose pull
    docker-compose up -d
    ```
 
-   The proxy service will now be running and accessible at `http://localhost:9876` (or whichever port you configure).
+   The proxy service will now be running and accessible at `http://localhost:9876` (or whichever host and port you configure).
 
 ## API Endpoints
 
-The proxy provides the following simple endpoints:
+The proxy provides the following simple endpoints. All endpoints require the `X-Api-Key` header to be set to your `SUBSONIC_PROXY_API_KEY`.
 
 - `GET /stats`: Returns the total counts of artists, albums, and songs.
-- `GET /artists`: Returns a list of all artists.
-- `GET /albums`: Returns a list of all albums with associated artist info.
-- `GET /songs`: Returns a list of all songs with associated album info.
-- `GET /config`: Returns the base URL of the configured Navidrome instance.
+- `GET /artists`: Returns a sorted list of all artists.
+- `GET /albums`: Returns a sorted list of all albums with associated artist info.
+- `GET /songs`: Returns a sorted list of all songs in the library.
+- `GET /config`: Returns the base URL of the configured Subsonic instance, used for building dynamic links.
 
 ## Glance Widget Integration
 
-Add the following widget to your `glance.yml` file. Ensure you have a `SUBSONIC_PROXY_URL` secret defined in your Glance environment that points to this running service (e.g., `SUBSONIC_PROXY_URL=http://127.0.0.1:9876`).
+This widget is designed for the [Glance Dashboard](https://github.com/glanceapp/glance/). It provides a summary of your library and includes interactive tooltips for browsing artists, albums, and songs directly from your dashboard.
+
+### Glance Secrets
+
+First, ensure you have the following secrets defined in your Glance environment. These should match the values from your `.env` file.
+
+- `SUBSONIC_PROXY_URL`: The full URL of this proxy service (e.g., `http://192.168.1.100:9876`).
+- `SUBSONIC_PROXY_API_KEY`: The secret API key you created for the proxy.
+- `SUBSONIC_SERVER_URL`: The base URL of your actual Subsonic/Navidrome server (e.g., `http://192.168.1.100:4533`). This is used to construct direct links.
+
+### Widget Configuration
+
+Add the following widget to your `glance.yml` file.
 
 ```yaml
 - type: custom-api
@@ -77,32 +119,56 @@ Add the following widget to your `glance.yml` file. Ensure you have a `SUBSONIC_
   title: Navidrome Library
   cache: 1h
   url: ${secret:SUBSONIC_PROXY_URL}/stats
+  headers:
+    X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+  subrequests:
+    artists:
+      url: ${secret:SUBSONIC_PROXY_URL}/artists
+      headers:
+        X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+    albums:
+      url: ${secret:SUBSONIC_PROXY_URL}/albums
+      headers:
+        X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
+    songs:
+      url: ${secret:SUBSONIC_PROXY_URL}/songs
+      headers:
+        X-Api-Key: ${secret:SUBSONIC_PROXY_API_KEY}
 
   options:
-    list_cache_minutes: 15
-    hover_enabled: true
+    # --- Main Feature Toggles ---
+    hover_enabled: true # Enable/disable all hover tooltips
+    main_links_enabled: true # Make main stat blocks clickable to open Subsonic
+
+    # --- Tooltip Feature Toggles ---
+    search_enabled: true # Show a search bar in tooltips
+    sort_enabled: true # Show a sort button in tooltips
+    tooltip_links_enabled: true # Make items inside tooltips clickable
+    context_text_enabled: true # Show context (e.g., artist for albums, album for songs)
+
+    # --- Required for Links ---
+    subsonic_server_url: ${secret:SUBSONIC_SERVER_URL}
 
   template: |
+    {{- /* Widget Configuration */ -}}
+    {{- $baseURL := .Options.StringOr "subsonic_server_url" "#" -}}
+    {{- $hoverEnabled := .Options.BoolOr "hover_enabled" true -}}
+    {{- $mainLinksEnabled := .Options.BoolOr "main_links_enabled" true -}}
+    {{- $searchEnabled := .Options.BoolOr "search_enabled" true -}}
+    {{- $sortEnabled := .Options.BoolOr "sort_enabled" true -}}
+    {{- $tooltipLinksEnabled := .Options.BoolOr "tooltip_links_enabled" true -}}
+    {{- $contextEnabled := .Options.BoolOr "context_text_enabled" true -}}
     <style>
-      .stat-link {
-        text-decoration: none;
-        color: inherit;
-        display: block;
-        border-radius: 6px;
-        transition: background-color 0.2s;
-        flex: 1;
-        margin: 0 4px;
+      .stat-container > * {
+        text-decoration: none; color: inherit; display: block; border-radius: 6px;
+        transition: background-color 0.2s; flex: 1; margin: 0 4px;
       }
-      .stat-link:hover {
-        background-color: var(--color-background-hover);
-      }
-      .stat-block { 
-        position: relative; 
-        cursor: pointer;
-      }
+      .stat-link { cursor: pointer; }
+      .stat-link:hover { background-color: var(--color-background-hover); }
+      .stat-block { position: relative; {{ if $hoverEnabled }}cursor: pointer;{{ end }} }
       .tooltip {
         visibility: hidden; opacity: 0; position: fixed;
-        width: 300px; max-height: 308px; overflow-y: auto;
+        width: 300px; max-height: 308px; overflow-y: hidden;
         display: flex; flex-direction: column;
         background-color: var(--color-background); color: var(--color-text);
         border: 1px solid var(--color-border); border-radius: 6px;
@@ -110,18 +176,23 @@ Add the following widget to your `glance.yml` file. Ensure you have a `SUBSONIC_
       }
       .tooltip.show { visibility: visible; opacity: 1; }
       .tooltip-header {
+        display: flex; align-items: center; gap: 8px;
+        padding: 4px 8px; border-bottom: 1px solid var(--color-border);
+        flex-shrink: 0; background-color: var(--color-background);
         position: sticky; top: 0; z-index: 1;
-        background-color: var(--color-background);
-        padding: 4px 8px; text-align: right;
-        border-bottom: 1px solid var(--color-border);
+      }
+      .tooltip-search {
+        flex-grow: 1; background-color: var(--color-interactive-background);
+        color: var(--color-text); border: 1px solid var(--color-border);
+        border-radius: 4px; padding: 2px 6px; font-size: 0.9em;
       }
       .tooltip-header button {
         background-color: var(--color-interactive-background); color: var(--color-text);
         border: 1px solid var(--color-border); border-radius: 4px;
-        padding: 2px 8px; font-size: 0.8em; cursor: pointer;
+        padding: 2px 8px; font-size: 0.8em; cursor: pointer; white-space: nowrap;
       }
       .tooltip-header button:hover { background-color: var(--color-interactive-background-hover); }
-      .tooltip-content { padding: 8px; font-size: 0.9em; }
+      .tooltip-content { padding: 8px; font-size: 0.9em; overflow-y: auto; }
       .tooltip-content ul { list-style: none; padding: 0; margin: 0; }
       .tooltip-content li {
         display: flex; justify-content: space-between; align-items: center;
@@ -131,146 +202,171 @@ Add the following widget to your `glance.yml` file. Ensure you have a `SUBSONIC_
       .tooltip-content li:hover { background-color: var(--color-background-hover); }
       .tooltip-content a { color: inherit; text-decoration: none; }
       .tooltip-content a:hover { text-decoration: underline; }
-      .tooltip-content .full-width-link { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-      .tooltip-content .item-name, .tooltip-content .item-link { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .tooltip-content .context-text, .tooltip-content .context-link {
+      .tooltip-content .full-width-link, .tooltip-content .item-link {
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1;
+      }
+      .tooltip-content .context-link, .tooltip-content .context-text {
         font-size: 0.9em; opacity: 0.7; margin-left: 10px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
       }
     </style>
-
+          
     <img src=x style="display:none" onerror="
-      const CACHE_DURATION_MS = {{ .Options.IntOr `list_cache_minutes` 15 }} * 60 * 1000;
-      window.hoverIsEnabled = {{ .Options.BoolOr `hover_enabled` true }};
-      window.navidromeConfig = { baseUrl: null };
-      window.tooltipState = { hideTimeout: null, controller: null, currentData: [], currentType: null, sortDir: 'asc' };
-      window.listCache = { artists: null, albums: null, songs: null };
-
-      fetch('${secret:SUBSONIC_PROXY_URL}/config').then(res => res.json()).then(data => { 
-        window.navidromeConfig.baseUrl = data.baseUrl;
-        if (data.baseUrl) {
-          document.getElementById('artists-link').href = `${data.baseUrl}/app/#/artist`;
-          document.getElementById('albums-link').href = `${data.baseUrl}/app/#/album/all`;
-          document.getElementById('songs-link').href = `${data.baseUrl}/app/#/song`;
+      // --- Global State & Config ---
+      window.hoverIsEnabled = {{ $hoverEnabled }};
+      window.tooltipState = { hideTimeout: null, currentTooltip: null, sortDir: 'asc' };
+          
+      // --- Helper Functions ---
+      window.openLink = function(type) {
+        const baseUrl = '{{ $baseURL }}';
+        if (baseUrl && baseUrl !== '#') {
+          let url = '#';
+          if (type === 'artists') { url = `${baseUrl}/app/#/artist`; }
+          else if (type === 'albums') { url = `${baseUrl}/app/#/album/all`; }
+          else if (type === 'songs') { url = `${baseUrl}/app/#/song`; }
+          window.open(url, '_blank');
         }
-      });
-
-      window.renderList = function(data, type) {
-        const tooltipContent = document.getElementById('tooltip-content');
-        let listHtml = '<ul>';
-        if (data && data.length > 0) {
-          const baseUrl = window.navidromeConfig.baseUrl;
-          data.forEach(item => {
-            if (type === 'albums') {
-              const albumLink = `<a class='item-link' href='${baseUrl}/#/album/${item.id}/show' target='_blank'>${item.name || 'Unknown'}</a>`;
-              const artistLink = item.artistId ? `<a class='context-link' href='${baseUrl}/#/artist/${item.artistId}/show' target='_blank'>${item.artistName || ''}</a>` : '';
-              listHtml += `<li>${albumLink}${artistLink}</li>`;
-            } else {
-              let href = '#';
-              if (type === 'artists') { href = `${baseUrl}/#/artist/${item.id}/show`; }
-              else if (type === 'songs') { href = `${baseUrl}/#/album/${item.albumId}/show`; }
-              const contextHtml = item.context ? `<span class='context-text'>${item.context}</span>` : '';
-              listHtml += `<li><a href='${href}' target='_blank' class='full-width-link'><span class='item-name'>${item.name || 'Unknown'}</span>${contextHtml}</a></li>`;
-            }
-          });
-        } else { listHtml += '<li>No items found.</li>'; }
-        tooltipContent.innerHTML = listHtml + '</ul>';
       };
-
-      window.sortTooltip = function() {
-        const data = window.tooltipState.currentData;
-        const button = document.getElementById('sort-button');
-        const newDir = window.tooltipState.sortDir === 'asc' ? 'desc' : 'asc';
-        data.sort((a, b) => {
-          const nameA = String(a.name || '').toLowerCase();
-          const nameB = String(b.name || '').toLowerCase();
-          if (newDir === 'desc') { return nameB.localeCompare(nameA); }
-          return nameA.localeCompare(nameB);
+          
+      window.filterList = function(type) {
+        const searchTerm = document.getElementById(type + '-search').value.toLowerCase();
+        const items = document.querySelectorAll('#' + type + '-tooltip ul li');
+        items.forEach(li => {
+          li.style.display = li.textContent.toLowerCase().includes(searchTerm) ? 'flex' : 'none';
         });
-        window.tooltipState.sortDir = newDir;
-        button.textContent = newDir === 'asc' ? 'Sort Z-A' : 'Sort A-Z';
-        window.renderList(data, window.tooltipState.currentType);
       };
-
-      window.handleData = function(data, type) {
-        data.sort((a, b) => String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase()));
-        window.tooltipState.currentData = data;
-        window.tooltipState.currentType = type;
-        window.tooltipState.sortDir = 'asc';
-        document.getElementById('sort-button').textContent = 'Sort Z-A';
-        window.renderList(data, type);
+          
+      window.sortList = function(type) {
+        const ul = document.querySelector('#' + type + '-tooltip ul');
+        if (!ul) return;
+        const items = Array.from(ul.querySelectorAll('li'));
+        window.tooltipState.sortDir = window.tooltipState.sortDir === 'asc' ? 'desc' : 'asc';
+        items.sort((a, b) => {
+          const textA = a.textContent.trim().toLowerCase();
+          const textB = b.textContent.trim().toLowerCase();
+          return window.tooltipState.sortDir === 'asc' ? textA.localeCompare(textB) : textB.localeCompare(textA);
+        });
+        ul.innerHTML = '';
+        items.forEach(li => ul.appendChild(li));
+        document.getElementById(type + '-sort-btn').textContent = window.tooltipState.sortDir === 'asc' ? 'A-Z' : 'Z-A';
       };
-
+          
+      // --- Tooltip Management ---
       window.showTooltip = function(type, element) {
         if (!window.hoverIsEnabled) return;
-        if (!window.navidromeConfig.baseUrl) return;
-        const tooltip = document.getElementById('lazy-tooltip');
-        const tooltipContent = document.getElementById('tooltip-content');
+        if (window.tooltipState.currentTooltip) window.tooltipState.currentTooltip.classList.remove('show');
         clearTimeout(window.tooltipState.hideTimeout);
-        if (window.tooltipState.controller) window.tooltipState.controller.abort();
+        const tooltip = document.getElementById(type + '-tooltip');
+        if (!tooltip) return;
+        
+        // Reset search field on show
+        const searchInput = document.getElementById(type + '-search');
+        if (searchInput && searchInput.value) {
+          searchInput.value = '';
+          filterList(type);
+        }
 
         const rect = element.getBoundingClientRect(), tooltipWidth = 300, tooltipHeight = 308, margin = 8;
         let top = rect.bottom + margin, left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
         if (top + tooltipHeight > window.innerHeight) { top = rect.top - tooltipHeight - margin; }
         if (left < margin) { left = margin; } else if (left + tooltipWidth > window.innerWidth - margin) { left = window.innerWidth - tooltipWidth - margin; }
+        
         tooltip.style.top = top + 'px';
         tooltip.style.left = left + 'px';
         tooltip.classList.add('show');
-
-        const now = new Date().getTime();
-        const cachedItem = window.listCache[type];
-        if (cachedItem && (now - cachedItem.timestamp < CACHE_DURATION_MS)) {
-          tooltipContent.innerHTML = '';
-          window.handleData(cachedItem.data, type);
-          return;
-        }
-
-        tooltipContent.innerHTML = 'Loading...';
-        window.tooltipState.controller = new AbortController();
-        const signal = window.tooltipState.controller.signal;
-
-        fetch('${secret:SUBSONIC_PROXY_URL}/' + type, { signal })
-          .then(response => response.ok ? response.json() : Promise.reject('API Error'))
-          .then(data => {
-            window.listCache[type] = { data: data, timestamp: new Date().getTime() };
-            window.handleData(data, type);
-          })
-          .catch(error => { if (error.name !== 'AbortError') tooltipContent.innerHTML = 'Error loading data.'; });
+        window.tooltipState.currentTooltip = tooltip;
       };
-
+          
       window.hideTooltip = function() {
         window.tooltipState.hideTimeout = setTimeout(() => {
-          if (window.tooltipState.controller) window.tooltipState.controller.abort();
-          document.getElementById('lazy-tooltip').classList.remove('show');
+          if (window.tooltipState.currentTooltip) {
+            window.tooltipState.currentTooltip.classList.remove('show');
+            window.tooltipState.currentTooltip = null;
+          }
         }, 300);
       };
     ">
-
-    <div class="flex justify-around text-center">
-      <a id="artists-link" href="#" target="_blank" class="stat-link">
-        <div class="stat-block" onmouseenter="showTooltip('artists', this.parentElement)" onmouseleave="hideTooltip()">
+          
+    <!-- Main Stat Blocks -->
+    <div class="flex justify-around text-center stat-container">
+      <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('artists')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('artists', this)" onmouseleave="hideTooltip()"{{ end }}>
+        <div class="stat-block">
           <div class="color-highlight size-h3">{{ .JSON.Int `artistCount` | formatNumber }}</div>
           <div class="size-h6">ARTISTS</div>
         </div>
-      </a>
-      <a id="albums-link" href="#" target="_blank" class="stat-link">
-        <div class="stat-block" onmouseenter="showTooltip('albums', this.parentElement)" onmouseleave="hideTooltip()">
+      </div>
+          
+      <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('albums')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('albums', this)" onmouseleave="hideTooltip()"{{ end }}>
+        <div class="stat-block">
           <div class="color-highlight size-h3">{{ .JSON.Int `albumCount` | formatNumber }}</div>
           <div class="size-h6">ALBUMS</div>
         </div>
-      </a>
-      <a id="songs-link" href="#" target="_blank" class="stat-link">
-        <div class="stat-block" onmouseenter="showTooltip('songs', this.parentElement)" onmouseleave="hideTooltip()">
+      </div>
+          
+      <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('songs')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('songs', this)" onmouseleave="hideTooltip()"{{ end }}>
+        <div class="stat-block">
           <div class="color-highlight size-h3">{{ .JSON.Int `songCount` | formatNumber }}</div>
           <div class="size-h6">SONGS</div>
         </div>
-      </a>
-    </div>
-
-    <div id="lazy-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
-      <div class="tooltip-header">
-        <button id="sort-button" onclick="sortTooltip()">Sort Z-A</button>
       </div>
-      <div id="tooltip-content" class="tooltip-content"></div>
     </div>
+          
+    <!-- Tooltip Definitions -->
+    {{ if $hoverEnabled }}
+    <div id="artists-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
+      {{ if or $searchEnabled $sortEnabled }}<div class="tooltip-header">{{ if $searchEnabled }}<input type="text" id="artists-search" class="tooltip-search" placeholder="Search..." onkeyup="filterList('artists')">{{ end }}{{ if $sortEnabled }}<button id="artists-sort-btn" onclick="sortList('artists')">A-Z</button>{{ end }}</div>{{ end }}
+      <div class="tooltip-content">
+        <ul>
+          {{- range (.Subrequest "artists").JSON.Value }}
+            <li>
+              {{- if $tooltipLinksEnabled }}
+                <a href="{{ $baseURL }}/#/artist/{{ index . "id" }}/show" target="_blank" class="full-width-link"><span class="item-name">{{ index . "name" }}</span></a>
+              {{- else }}
+                <span class="full-width-link item-name">{{ index . "name" }}</span>
+              {{- end }}
+            </li>
+          {{- end }}
+        </ul>
+      </div>
+    </div>
+          
+    <div id="albums-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
+      {{ if or $searchEnabled $sortEnabled }}<div class="tooltip-header">{{ if $searchEnabled }}<input type="text" id="albums-search" class="tooltip-search" placeholder="Search..." onkeyup="filterList('albums')">{{ end }}{{ if $sortEnabled }}<button id="albums-sort-btn" onclick="sortList('albums')">A-Z</button>{{ end }}</div>{{ end }}
+      <div class="tooltip-content">
+        <ul>
+          {{- range (.Subrequest "albums").JSON.Value }}
+            <li>
+              {{- if $tooltipLinksEnabled }}<a class="item-link" href="{{ $baseURL }}/#/album/{{ index . "id" }}/show" target="_blank">{{ index . "name" }}</a>{{ else }}<span class="item-link">{{ index . "name" }}</span>{{ end -}}
+              {{- if and $contextEnabled (index . "artistId") }}
+                {{- if $tooltipLinksEnabled }}<a class="context-link" href="{{ $baseURL }}/#/artist/{{ index . "artistId" }}/show" target="_blank">{{ index . "artistName" }}</a>{{ else }}<span class="context-text">{{ index . "artistName" }}</span>{{ end -}}
+              {{- end }}
+            </li>
+          {{- end }}
+        </ul>
+      </div>
+    </div>
+          
+    <div id="songs-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
+      {{ if or $searchEnabled $sortEnabled }}<div class="tooltip-header">{{ if $searchEnabled }}<input type="text" id="songs-search" class="tooltip-search" placeholder="Search..." onkeyup="filterList('songs')">{{ end }}{{ if $sortEnabled }}<button id="songs-sort-btn" onclick="sortList('songs')">A-Z</button>{{ end }}</div>{{ end }}
+      <div class="tooltip-content">
+        <ul>
+          {{- range (.Subrequest "songs").JSON.Value }}
+            <li>
+              {{- if $tooltipLinksEnabled }}
+                <a href="{{ $baseURL }}/#/album/{{ index . "albumId" }}/show" target="_blank" class="full-width-link">
+                  <span class="item-name">{{ index . "name" }}</span>
+                  {{- if and $contextEnabled (index . "context") }}<span class="context-text">{{ index . "context" }}</span>{{ end -}}
+                </a>
+              {{- else }}
+                <span class="full-width-link">
+                  <span class="item-name">{{ index . "name" }}</span>
+                  {{- if and $contextEnabled (index . "context") }}<span class="context-text">{{ index . "context" }}</span>{{ end -}}
+                </span>
+              {{- end }}
+            </li>
+          {{- end }}
+        </ul>
+      </div>
+    </div>
+    {{ end }}
 ```
