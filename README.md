@@ -65,7 +65,10 @@ This project is designed to be deployed as a Docker container.
 
    ```env
    # .env file
+   # The internal or external URL for your Subsonic/Navidrome server.
+   # The proxy needs this to communicate with your server.
    SUBSONIC_URL="http://your-navidrome-url:4533"
+
    SUBSONIC_USERNAME="your-api-user"
    SUBSONIC_PASSWORD="your-long-and-secret-password"
    SUBSONIC_PROXY_API_KEY="a-very-strong-random-key-for-the-proxy"
@@ -105,9 +108,9 @@ This widget is designed for the [Glance Dashboard](https://github.com/glanceapp/
 
 First, ensure you have the following secrets defined in your Glance environment. These should match the values from your `.env` file.
 
-- `SUBSONIC_PROXY_URL`: The full URL of this proxy service (e.g., `http://192.168.1.100:9876`).
+- `SUBSONIC_PROXY_URL`: The full URL of this proxy service (e.g., `http://192.168.1.100:9876`). This can be an internal or external URL, as long as your Glance instance can reach it.
 - `SUBSONIC_PROXY_API_KEY`: The secret API key you created for the proxy.
-- `SUBSONIC_SERVER_URL`: The base URL of your actual Subsonic/Navidrome server (e.g., `http://192.168.1.100:4533`). This is used to construct direct links.
+- `SUBSONIC_SERVER_URL`: The base URL of your actual Subsonic/Navidrome server (e.g., `http://192.168.1.100:4533`). This should be an **external URL** if you want to be able to click links in the widget and open them from anywhere. If you only access your dashboard locally, an internal URL is fine.
 
 ### Widget Configuration
 
