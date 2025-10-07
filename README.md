@@ -4,25 +4,6 @@ A lightweight, containerized API proxy that acts as a bridge for Subsonic-compat
 
 This service handles the complex salt-and-token authentication required by the Subsonic API and exposes simple, clean JSON endpoints that are easy to consume.
 
-## The Problem Solved
-
-Modern dashboard widgets often expect simple REST APIs that authenticate with a static header or token. The Subsonic API, however, requires a dynamic token to be generated for every single request: a random salt is created, appended to the password, and the md5 hash of the result is sent as a token.
-
-This proxy encapsulates that entire logic, allowing any simple HTTP client to get data from a Subsonic server without needing to implement the complex and stateful authentication scheme.
-
-## Features
-
-- **Simple JSON Endpoints**: Provides easy-to-use endpoints for library statistics and detailed lists.
-- **Handles Subsonic Auth**: Manages all salt-and-token authentication automatically.
-- **Secure**: Protects your proxy endpoints with a required API key.
-- **Performant**: Caches Subsonic API responses to reduce load and improve speed. Cache duration is configurable.
-- **Containerized**: Runs as a minimal and efficient Docker container using Python and Flask.
-- **Advanced Glance Widget**: Comes with a feature-rich Glance widget template that includes:
-  - Interactive tooltips on hover to browse artists, albums, and songs.
-  - Client-side search and sorting within tooltips.
-  - Dynamic links that take you directly to the item in your Subsonic server.
-  - Highly configurable to enable/disable features.
-
 ## Deployment Guide
 
 This project is designed to be deployed as a Docker container.
@@ -90,6 +71,25 @@ This project is designed to be deployed as a Docker container.
 
    The proxy service will now be running and accessible at `http://localhost:9876` (or whichever host and port you configure).
 
+## The Problem Solved
+
+Modern dashboard widgets often expect simple REST APIs that authenticate with a static header or token. The Subsonic API, however, requires a dynamic token to be generated for every single request: a random salt is created, appended to the password, and the md5 hash of the result is sent as a token.
+
+This proxy encapsulates that entire logic, allowing any simple HTTP client to get data from a Subsonic server without needing to implement the complex and stateful authentication scheme.
+
+## Features
+
+- **Simple JSON Endpoints**: Provides easy-to-use endpoints for library statistics and detailed lists.
+- **Handles Subsonic Auth**: Manages all salt-and-token authentication automatically.
+- **Secure**: Protects your proxy endpoints with a required API key.
+- **Performant**: Caches Subsonic API responses to reduce load and improve speed. Cache duration is configurable.
+- **Containerized**: Runs as a minimal and efficient Docker container using Python and Flask.
+- **Advanced Glance Widget**: Comes with a feature-rich Glance widget template that includes:
+  - Interactive tooltips on hover to browse artists, albums, and songs.
+  - Client-side search and sorting within tooltips.
+  - Dynamic links that take you directly to the item in your Subsonic server.
+  - Highly configurable to enable/disable features.
+
 ## API Endpoints
 
 The proxy provides the following simple endpoints. All endpoints require the `X-Api-Key` header to be set to your `SUBSONIC_PROXY_API_KEY`.
@@ -115,6 +115,14 @@ First, ensure you have the following secrets defined in your Glance environment.
 ### Widget Configuration
 
 Add the following widget to your `glance.yml` file.
+
+````yaml
+### Widget Configuration
+
+Add the following widget to your `glance.yml` file.
+
+<details>
+<summary>Click to expand Glance Widget Configuration</summary>
 
 ```yaml
 - type: custom-api
@@ -213,12 +221,12 @@ Add the following widget to your `glance.yml` file.
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
       }
     </style>
-          
+
     <img src=x style="display:none" onerror="
       // --- Global State & Config ---
       window.hoverIsEnabled = {{ $hoverEnabled }};
       window.tooltipState = { hideTimeout: null, currentTooltip: null, sortDir: 'asc' };
-          
+
       // --- Helper Functions ---
       window.openLink = function(type) {
         const baseUrl = '{{ $baseURL }}';
@@ -230,7 +238,7 @@ Add the following widget to your `glance.yml` file.
           window.open(url, '_blank');
         }
       };
-          
+
       window.filterList = function(type) {
         const searchTerm = document.getElementById(type + '-search').value.toLowerCase();
         const items = document.querySelectorAll('#' + type + '-tooltip ul li');
@@ -238,7 +246,7 @@ Add the following widget to your `glance.yml` file.
           li.style.display = li.textContent.toLowerCase().includes(searchTerm) ? 'flex' : 'none';
         });
       };
-          
+
       window.sortList = function(type) {
         const ul = document.querySelector('#' + type + '-tooltip ul');
         if (!ul) return;
@@ -253,7 +261,7 @@ Add the following widget to your `glance.yml` file.
         items.forEach(li => ul.appendChild(li));
         document.getElementById(type + '-sort-btn').textContent = window.tooltipState.sortDir === 'asc' ? 'A-Z' : 'Z-A';
       };
-          
+
       // --- Tooltip Management ---
       window.showTooltip = function(type, element) {
         if (!window.hoverIsEnabled) return;
@@ -261,7 +269,7 @@ Add the following widget to your `glance.yml` file.
         clearTimeout(window.tooltipState.hideTimeout);
         const tooltip = document.getElementById(type + '-tooltip');
         if (!tooltip) return;
-        
+
         // Reset search field on show
         const searchInput = document.getElementById(type + '-search');
         if (searchInput && searchInput.value) {
@@ -273,13 +281,13 @@ Add the following widget to your `glance.yml` file.
         let top = rect.bottom + margin, left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
         if (top + tooltipHeight > window.innerHeight) { top = rect.top - tooltipHeight - margin; }
         if (left < margin) { left = margin; } else if (left + tooltipWidth > window.innerWidth - margin) { left = window.innerWidth - tooltipWidth - margin; }
-        
+
         tooltip.style.top = top + 'px';
         tooltip.style.left = left + 'px';
         tooltip.classList.add('show');
         window.tooltipState.currentTooltip = tooltip;
       };
-          
+
       window.hideTooltip = function() {
         window.tooltipState.hideTimeout = setTimeout(() => {
           if (window.tooltipState.currentTooltip) {
@@ -289,7 +297,7 @@ Add the following widget to your `glance.yml` file.
         }, 300);
       };
     ">
-          
+
     <!-- Main Stat Blocks -->
     <div class="flex justify-around text-center stat-container">
       <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('artists')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('artists', this)" onmouseleave="hideTooltip()"{{ end }}>
@@ -298,14 +306,14 @@ Add the following widget to your `glance.yml` file.
           <div class="size-h6">ARTISTS</div>
         </div>
       </div>
-          
+
       <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('albums')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('albums', this)" onmouseleave="hideTooltip()"{{ end }}>
         <div class="stat-block">
           <div class="color-highlight size-h3">{{ .JSON.Int `albumCount` | formatNumber }}</div>
           <div class="size-h6">ALBUMS</div>
         </div>
       </div>
-          
+
       <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('songs')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('songs', this)" onmouseleave="hideTooltip()"{{ end }}>
         <div class="stat-block">
           <div class="color-highlight size-h3">{{ .JSON.Int `songCount` | formatNumber }}</div>
@@ -313,7 +321,7 @@ Add the following widget to your `glance.yml` file.
         </div>
       </div>
     </div>
-          
+
     <!-- Tooltip Definitions -->
     {{ if $hoverEnabled }}
     <div id="artists-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
@@ -332,7 +340,7 @@ Add the following widget to your `glance.yml` file.
         </ul>
       </div>
     </div>
-          
+
     <div id="albums-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
       {{ if or $searchEnabled $sortEnabled }}<div class="tooltip-header">{{ if $searchEnabled }}<input type="text" id="albums-search" class="tooltip-search" placeholder="Search..." onkeyup="filterList('albums')">{{ end }}{{ if $sortEnabled }}<button id="albums-sort-btn" onclick="sortList('albums')">A-Z</button>{{ end }}</div>{{ end }}
       <div class="tooltip-content">
@@ -348,7 +356,7 @@ Add the following widget to your `glance.yml` file.
         </ul>
       </div>
     </div>
-          
+
     <div id="songs-tooltip" class="tooltip" onmouseenter="clearTimeout(window.tooltipState.hideTimeout)" onmouseleave="hideTooltip()">
       {{ if or $searchEnabled $sortEnabled }}<div class="tooltip-header">{{ if $searchEnabled }}<input type="text" id="songs-search" class="tooltip-search" placeholder="Search..." onkeyup="filterList('songs')">{{ end }}{{ if $sortEnabled }}<button id="songs-sort-btn" onclick="sortList('songs')">A-Z</button>{{ end }}</div>{{ end }}
       <div class="tooltip-content">
@@ -372,4 +380,4 @@ Add the following widget to your `glance.yml` file.
       </div>
     </div>
     {{ end }}
-```
+````
