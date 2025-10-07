@@ -220,17 +220,6 @@ Add the following widget to your `glance.yml` file.
       window.tooltipState = { hideTimeout: null, currentTooltip: null, sortDir: 'asc' };
 
       // --- Helper Functions ---
-      window.openLink = function(type) {
-        const baseUrl = '{{ $baseURL }}';
-        if (baseUrl && baseUrl !== '#') {
-          let url = '#';
-          if (type === 'artists') { url = `${baseUrl}/app/#/artist`; }
-          else if (type === 'albums') { url = `${baseUrl}/app/#/album/all`; }
-          else if (type === 'songs') { url = `${baseUrl}/app/#/song`; }
-          window.open(url, '_blank');
-        }
-      };
-
       window.filterList = function(type) {
         const searchTerm = document.getElementById(type + '-search').value.toLowerCase();
         const items = document.querySelectorAll('#' + type + '-tooltip ul li');
@@ -292,25 +281,31 @@ Add the following widget to your `glance.yml` file.
 
     <!-- Main Stat Blocks -->
     <div class="flex justify-around text-center stat-container">
-      <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('artists')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('artists', this)" onmouseleave="hideTooltip()"{{ end }}>
-        <div class="stat-block">
-          <div class="color-highlight size-h3">{{ .JSON.Int `artistCount` | formatNumber }}</div>
-          <div class="size-h6">ARTISTS</div>
-        </div>
+      <div class="stat-link" {{ if $hoverEnabled }}onmouseenter="showTooltip('artists', this)" onmouseleave="hideTooltip()"{{ end }}>
+        {{ if $mainLinksEnabled }}<a href="{{ $baseURL }}/app/#/artist" target="_blank" style="text-decoration: none; color: inherit;">{{ end }}
+          <div class="stat-block">
+            <div class="color-highlight size-h3">{{ .JSON.Int `artistCount` | formatNumber }}</div>
+            <div class="size-h6">ARTISTS</div>
+          </div>
+        {{ if $mainLinksEnabled }}</a>{{ end }}
       </div>
 
-      <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('albums')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('albums', this)" onmouseleave="hideTooltip()"{{ end }}>
-        <div class="stat-block">
-          <div class="color-highlight size-h3">{{ .JSON.Int `albumCount` | formatNumber }}</div>
-          <div class="size-h6">ALBUMS</div>
-        </div>
+      <div class="stat-link" {{ if $hoverEnabled }}onmouseenter="showTooltip('albums', this)" onmouseleave="hideTooltip()"{{ end }}>
+        {{ if $mainLinksEnabled }}<a href="{{ $baseURL }}/app/#/album/all" target="_blank" style="text-decoration: none; color: inherit;">{{ end }}
+          <div class="stat-block">
+            <div class="color-highlight size-h3">{{ .JSON.Int `albumCount` | formatNumber }}</div>
+            <div class="size-h6">ALBUMS</div>
+          </div>
+        {{ if $mainLinksEnabled }}</a>{{ end }}
       </div>
 
-      <div class="stat-link" {{ if $mainLinksEnabled }}onclick="openLink('songs')"{{ end }} {{ if $hoverEnabled }}onmouseenter="showTooltip('songs', this)" onmouseleave="hideTooltip()"{{ end }}>
-        <div class="stat-block">
-          <div class="color-highlight size-h3">{{ .JSON.Int `songCount` | formatNumber }}</div>
-          <div class="size-h6">SONGS</div>
-        </div>
+      <div class="stat-link" {{ if $hoverEnabled }}onmouseenter="showTooltip('songs', this)" onmouseleave="hideTooltip()"{{ end }}>
+        {{ if $mainLinksEnabled }}<a href="{{ $baseURL }}/app/#/song" target="_blank" style="text-decoration: none; color: inherit;">{{ end }}
+          <div class="stat-block">
+            <div class="color-highlight size-h3">{{ .JSON.Int `songCount` | formatNumber }}</div>
+            <div class="size-h6">SONGS</div>
+          </div>
+        {{ if $mainLinksEnabled }}</a>{{ end }}
       </div>
     </div>
 
