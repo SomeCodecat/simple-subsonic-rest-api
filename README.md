@@ -14,10 +14,11 @@ This service handles the complex salt-and-token authentication required by the S
   - [The Problem Solved](#the-problem-solved)
   - [Features](#features)
   - [API Endpoints](#api-endpoints)
-  - [Glance Widget Integration](#glance-widget-integration)
-    - [Glance Setup](#glance-setup)
-    - [Glance Secrets](#glance-secrets)
-    - [Widget Configuration](#widget-configuration)
+- [Glance Widget Integration](#glance-widget-integration)
+  - [Glance Setup](#glance-setup)
+  - [Environment Variables](#environment-variables)
+  - [Configuration Options](#configuration-options)
+  - [Code](#code)
 
 ## Deployment Guide
 
@@ -115,25 +116,41 @@ The proxy provides the following simple endpoints. All endpoints require the `X-
 - `GET /songs`: Returns a sorted list of all songs in the library.
 - `GET /config`: Returns the base URL of the configured Subsonic instance, used for building dynamic links.
 
-## Glance Widget Integration
+# Glance Widget Integration
 
 This widget is designed for the [Glance Dashboard](https://github.com/glanceapp/glance/). It provides a summary of your library and includes interactive tooltips for browsing artists, albums, and songs directly from your dashboard.
 
-### Glance Setup
+![Navidrome Stats Widget Preview](/media/general.png)
+![Navidrome Stats Widget Preview](/media/select.png)
+
+## Glance Setup
 
 Before adding the widget, you need to have Glance installed and running. For detailed instructions on setting up Glance, please refer to the [official documentation](https://github.com/glanceapp/glance).
 
-### Glance Secrets
+## Environment Variables
 
-First, ensure you have the following secrets defined in your Glance environment. These should match the values from your `.env` file.
+This widget requires the following environment variables to be configured:
 
-- `SUBSONIC_PROXY_URL`: The full URL of this proxy service (e.g., `http://192.168.1.100:9876`). This can be an internal or external URL, as long as your Glance instance can reach it.
+- `SUBSONIC_PROXY_URL`: The full URL of this proxy service (e.g., `http://192.168.1.100:9876`).
 - `SUBSONIC_PROXY_API_KEY`: The secret API key you created for the proxy.
-- `SUBSONIC_SERVER_URL`: The base URL of your actual Subsonic/Navidrome server (e.g., `http://192.168.1.100:4533`). This should be an **external URL** if you want to be able to click links in the widget and open them from anywhere. If you only access your dashboard locally, an internal URL is fine.
+- `SUBSONIC_SERVER_URL`: The base URL of your actual Subsonic/Navidrome server (e.g., `http://192.168.1.100:4533`).
+  This should be an **external URL** if you want to be able to click links in the widget and open them from anywhere.
+  If you only access your dashboard locally, an internal URL is fine.
 
-### Widget Configuration
+## Configuration Options
 
-Add the following widget to your `glance.yml` file.
+This widget is highly configurable through the options block. You can enable or disable features to suit your needs:
+
+| Option                  | Type    | Default | Description                                                                |
+| ----------------------- | ------- | ------- | -------------------------------------------------------------------------- |
+| `hover_enabled`         | boolean | `true`  | Toggles the entire tooltip popover feature                                 |
+| `main_links_enabled`    | boolean | `true`  | Toggles whether the main stat numbers are clickable links                  |
+| `search_enabled`        | boolean | `true`  | Toggles the search bar inside the tooltips                                 |
+| `sort_enabled`          | boolean | `true`  | Toggles the sort button inside the tooltips                                |
+| `tooltip_links_enabled` | boolean | `true`  | Toggles whether the items inside the tooltips are clickable links          |
+| `context_text_enabled`  | boolean | `true`  | Toggles the display of secondary text (artist/album names) in the tooltips |
+
+## Code
 
 ```yaml
 - type: custom-api
