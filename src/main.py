@@ -41,6 +41,8 @@ def require_api_key(f):
             return jsonify({"error": "Unauthorized"}), 401
     return decorated_function
 
+SUBSONIC_PAGE_SIZE = 500
+
 def subsonic_request(endpoint, extra_params=None):
     salt = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
     token = hashlib.md5((SUBSONIC_PASSWORD + salt).encode('utf-8')).hexdigest()
@@ -67,6 +69,25 @@ def subsonic_request(endpoint, extra_params=None):
         app.logger.error(f"Error connecting to Subsonic server at {SUBSONIC_URL}: {e}")
         return None
 
+def get_all_albums():
+    """Page through getAlbumList2 since Subsonic caps `size` at 500 per call."""
+    albums = []
+    offset = 0
+    while True:
+        data = subsonic_request("getAlbumList2", extra_params={
+            "type": "alphabeticalByName",
+            "size": str(SUBSONIC_PAGE_SIZE),
+            "offset": str(offset),
+        })
+        if not (data and 'albumList2' in data and 'album' in data['albumList2']):
+            break
+        page = data['albumList2']['album']
+        albums.extend(page)
+        if len(page) < SUBSONIC_PAGE_SIZE:
+            break
+        offset += SUBSONIC_PAGE_SIZE
+    return albums
+
 @app.route('/config')
 @require_api_key
 def get_config():
@@ -90,14 +111,13 @@ def get_artist_list():
 @cache.cached()
 def get_album_list():
     app.logger.info(f"Request for /albums (cache miss)")
-    album_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
-    album_list = []
-    if album_data and 'albumList2' in album_data and 'album' in album_data['albumList2']:
-        for album in album_data['albumList2']['album']:
-            album_list.append({
-                'id': album.get('id'), 'name': album.get('name', 'Unknown Album'),
-                'artistId': album.get('artistId'), 'artistName': album.get('artist', '')
-            })
+    album_list = [
+        {
+            'id': album.get('id'), 'name': album.get('name', 'Unknown Album'),
+            'artistId': album.get('artistId'), 'artistName': album.get('artist', '')
+        }
+        for album in get_all_albums()
+    ]
     return jsonify(sorted(album_list, key=lambda item: str(item.get('name', '')).lower()))
 
 @app.route('/songs')
@@ -105,17 +125,14 @@ def get_album_list():
 @cache.cached()
 def get_song_list():
     app.logger.info("Request for /songs (cache miss)")
-    
-    # First, get all albums
-    album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
-    if not (album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']):
+
+    all_albums = get_all_albums()
+    if not all_albums:
         app.logger.error("Could not retrieve album list to fetch all songs.")
         return jsonify([])
 
-    all_albums = album_list_data['albumList2']['album']
     song_list = []
 
-    # Iterate through each album to get its songs
     for album_summary in all_albums:
         album_id = album_summary.get('id')
         if not album_id:
@@ -146,14 +163,11 @@ def get_stats():
     if artists_data and 'artists' in artists_data and 'index' in artists_data['artists']:
         stats['artistCount'] = sum(len(index.get('artist', [])) for index in artists_data['artists']['index'])
     
-    # Get album count and song count from album list
-    album_list_data = subsonic_request("getAlbumList2", extra_params={"type": "alphabeticalByName", "size": "10000"})
-    if album_list_data and 'albumList2' in album_list_data and 'album' in album_list_data['albumList2']:
-        albums = album_list_data['albumList2']['album']
-        stats['albumCount'] = len(albums)
-        # Sum song counts from each album for a total song count
-        stats['songCount'] = sum(album.get('songCount', 0) for album in albums)
-        
+    # Get album count and song count from album list (paginated)
+    albums = get_all_albums()
+    stats['albumCount'] = len(albums)
+    stats['songCount'] = sum(album.get('songCount', 0) for album in albums)
+
     return jsonify(stats)
 
 if __name__ == '__main__':
